@@ -84,8 +84,8 @@ Graph.prototype.getComponents = function() {
     // add its adjacent nodes to the component it's in
     var componentIndexForNode = componentIndex[nodeValue];
     var componentForNode = components[componentIndexForNode];
-    var neighbors = this.edges[nodeValue];
-    _.forEach(neighbors, function(neighbor) {
+    var neighbors = Object.keys(this.edges[nodeValue]);
+    neighbors.forEach(function(neighbor) {
       componentForNode[neighbor] = true;
       componentIndex[neighbor] = componentIndexForNode;
     });
@@ -95,6 +95,53 @@ Graph.prototype.getComponents = function() {
   return components.map(function(componentAsObject) {
     return Object.keys(componentAsObject);
   });
-}
+};
+
+Graph.prototype.getMutualGroups = function() {
+  var nodeValues = Object.keys(this.edges);
+
+  // Keep track of what component index a nodeValue is in
+  // Initialized to -1 for each, i.e. not in a component
+  var componentIndex = nodeValues.reduce(function(acc, nodeValue) {
+    acc[nodeValue] = 0;
+    return acc;
+  }, {});
+
+  // An array of components
+  // Each component is an object of nodeValues that are connected in a graph
+    // key: nodeValue
+    // value: true (dummy value)
+  var components = [nodeValues.reduce(function(acc, nodeValue) {
+    acc[nodeValue] = true;
+    return acc;
+  }, {})];
+
+  nodeValues.forEach(function(nodeValue) {
+    // grab the nodes that nodeValue is compatible with
+      // from within the component that the node is in
+    var componentIndexForNode = componentIndex[nodeValue];
+    var componentForNode = components[componentIndexForNode];
+    var compatibleNodes = Object.keys(componentForNode).filter(function(neighbor) {
+      return neighbor === nodeValue || neighbor in this.edges[nodeValue];
+    }.bind(this));
+
+    // if it's not compatible with everything in its component,
+      // pull out all those compatible nodes into a new component
+    if (compatibleNodes.length !== Object.keys(componentForNode).length) {
+      var newComponent = {};
+      components.push(newComponent);
+      compatibleNodes.forEach(function(compatibleNode) {
+        delete componentForNode[compatibleNode];
+        newComponent[compatibleNode] = true;
+        componentIndex[compatibleNode] = components.length - 1;
+      });
+    }
+  }.bind(this));
+
+  // Return components as an array of arrays (rather than array of sets)
+  return components.map(function(componentAsObject) {
+    return Object.keys(componentAsObject);
+  });
+};
 
 module.exports = Graph;

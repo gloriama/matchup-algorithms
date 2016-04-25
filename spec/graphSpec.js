@@ -9,7 +9,7 @@ describe('Graph', function() {
     graph = new Graph();
     for (var i = 0; i < 100; i++) {
       graph.addNode(i);
-      for (var j = 0; j < 10; j++) {
+      for (var j = 0; j < 80; j++) {
         graph.addEdge(i, Math.floor(Math.random() * i));
       };
     }
@@ -58,6 +58,46 @@ describe('Graph', function() {
       components.forEach(function(component) {
         assert.equal(true, Array.isArray(component));
       });
+    });
+  });
+
+  describe('getMutualGroups()', function () {
+    it('should return an array', function () {
+      var mutualGroups = graph.getMutualGroups();
+      assert.equal(true, Array.isArray(mutualGroups));
+    });
+    it('should return an array of arrays', function () {
+      var mutualGroups = graph.getMutualGroups();
+      mutualGroups.forEach(function(mutualGroup) {
+        assert.equal(true, Array.isArray(mutualGroup));
+      });
+    });
+    it('should contain each node in the graph exactly once', function () {
+      var mutualGroups = graph.getMutualGroups();
+      var seen = {};
+      mutualGroups.forEach(function(mutualGroup) {
+        mutualGroup.forEach(function(nodeValue) {
+          assert.isFalse(nodeValue in seen);
+          seen[nodeValue] = true;
+        });
+      });
+      for (var i = 0; i < 100; i++) {
+        assert.isTrue(i.toString() in seen);
+      }
+    });
+    it('should not contain any node not in the graph', function () {
+      var mutualGroups = graph.getMutualGroups();
+      console.log(mutualGroups);
+      var seen = {};
+      mutualGroups.forEach(function(mutualGroup) {
+        mutualGroup.forEach(function(nodeValue) {
+          assert.isFalse(nodeValue in seen);
+          seen[nodeValue] = true;
+        });
+      });
+      for (var i = 100; i < 110; i++) {
+        assert.isFalse(i.toString() in seen);
+      }
     });
   });
 });
