@@ -4,7 +4,7 @@
   "description": "Algorithms for matching up pairs or groups based on constraints",
   "main": "graph.js",
   "scripts": {
-    "test": "node spec/graphSpec.js"
+    "test": "mocha spec"
   },
   "repository": {
     "type": "git",
