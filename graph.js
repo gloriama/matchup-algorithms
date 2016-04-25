@@ -1,3 +1,5 @@
+var _ = require('underscore');
+
 // Graph class
 // Instantiation style: pseudoclassical
 // Available methods:
@@ -16,7 +18,7 @@ var Graph = function() {
   // value: object of nodeValues that this node is adjacent to
     //key: nodeValue
     //value: true (dummy value)
-}
+};
 
 // Returns the object of nodeValues that this node is adjacent to
 Graph.prototype.addNode = function(nodeValue) {
@@ -29,7 +31,7 @@ Graph.prototype.addNode = function(nodeValue) {
 //Returns true if deleted node, false if it didn't exist to begin with
 Graph.prototype.removeNode = function(nodeValue) {
   // Delete nodeValue from adjacency list for all nodes in graph
-  this.edges.forEach(function(adjacentNodes) {
+  _.forEach(this.edges, function(adjacentNodes) {
     delete adjacentNodes[nodeValue];
   });
 
@@ -39,6 +41,18 @@ Graph.prototype.removeNode = function(nodeValue) {
     return true;
   }
   return false;
+};
+
+Graph.prototype.addEdge = function(nodeValue1, nodeValue2) {
+  this.edges[nodeValue1][nodeValue2] = true;
+  this.edges[nodeValue2][nodeValue1] = true;
+  return true;
+};
+
+Graph.prototype.removeEdge = function(nodeValue1, nodeValue2) {
+  delete this.edges[nodeValue1][nodeValue2];
+  delete this.edges[nodeValue2][nodeValue1];
+  return true;
 };
 
 Graph.prototype.getComponents = function() {
@@ -71,14 +85,16 @@ Graph.prototype.getComponents = function() {
     var componentIndexForNode = componentIndex[nodeValue];
     var componentForNode = components[componentIndexForNode];
     var neighbors = this.edges[nodeValue];
-    neighbors.forEach(function(neighbor) {
-      component[neighbor] = true;
+    _.forEach(neighbors, function(neighbor) {
+      componentForNode[neighbor] = true;
       componentIndex[neighbor] = componentIndexForNode;
     });
-  });
+  }.bind(this));
 
   // Return components as an array of arrays (rather than array of sets)
   return components.map(function(componentAsObject) {
     return Object.keys(componentAsObject);
   });
 }
+
+module.exports = Graph;
