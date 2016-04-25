@@ -1,0 +1,24 @@
+{
+  "name": "matchup-algorithms",
+  "version": "1.0.0",
+  "description": "Algorithms for matching up pairs or groups based on constraints",
+  "main": "graph.js",
+  "scripts": {
+    "test": "node spec/graphSpec.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gloriama/matchup-algorithms.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gloriama/matchup-algorithms/issues"
+  },
+  "homepage": "https://github.com/gloriama/matchup-algorithms#readme",
+  "dependencies": {
+    "chai": "^3.5.0",
+    "mocha": "^2.4.5",
+    "underscore": "^1.8.3"
+  }
+}
