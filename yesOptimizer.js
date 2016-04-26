@@ -37,13 +37,19 @@ var personIds = Object.keys(peopleData);
     returns all people if given no arguments
 */
 
+var isMutualYes = function(personId1, personId2) {
+  return (
+    personId1 in peopleData[personId2].yes &&
+    personId2 in peopleData[personId1].yes
+  );
+};
+
 var getMutualYeses = function(group, candidatePool) {
   return group.reduce(function(acc, personId) {
     return acc.filter(function(currPersonId) {
       return (
         currPersonId !== personId &&
-        currPersonId in peopleData[personId].yes &&
-        personId in peopleData[currPersonId].yes
+        isMutualYes(personId, currPersonId)
       );
     })
   }, candidatePool);
@@ -94,10 +100,50 @@ mutualGroups.sort(function(a, b) {
   return b.length - a.length;
 });
 
-console.log(mutualGroups.map(function(group) {
-  var groupAsNames = group.map(function(personId) {
-    return peopleData[personId].name;
+// console.log(mutualGroups.map(function(group) {
+//   var groupAsNames = group.map(function(personId) {
+//     return peopleData[personId].name;
+//   });
+//   groupAsNames.sort();
+//   return groupAsNames;
+// }));
+
+// Given all the possible groups that all mutually want each other,
+// optimize an overall grouping where no one is repeated
+
+  // select the top group
+  // then select the next group that doesn't use anything above
+  // etc.
+
+  // restart with starting from the second-top group
+
+  // save only the one with the most total people placed
+
+var getOptimizedPartialGrouping = function(groups, used) {
+  used = used || {};
+  var potentialGroups = groups.filter(function(group) {
+    return _.every(group, function(item) {
+      return !(item in used);
+    });
   });
-  groupAsNames.sort();
-  return groupAsNames;
-}));
+  if (potentialGroups.length === 0) {
+    return [];
+  }
+
+  var first = potentialGroups[0];
+  var usedIncludingFirst = first.reduce(function(acc, item) {
+    acc[item] = true;
+    return acc;
+  }, Object.create(used));
+  var remaining = potentialGroups.slice(1);
+  var bestGroupWithFirst = [potentialGroups].concat(getOptimizedPartialGrouping(remaining, usedIncludingFirst));
+  var bestGroupWithoutFirst = getOptimizedPartialGrouping(remaining, used);
+
+  if (bestGroupWithFirst.length >= bestGroupWithoutFirst) {
+    return bestGroupWithFirst;
+  } else {
+    return bestGroupWithoutFirst;
+  }
+};
+
+console.log(getOptimizedPartialGrouping(mutualGroups));
