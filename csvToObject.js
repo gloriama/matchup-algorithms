@@ -48,4 +48,5 @@ lines.forEach(function(line, i) {
   }
 });
 
-module.exports = peopleData;
+exports.peopleData = peopleData;
+exports.byPersonName = byPersonName;

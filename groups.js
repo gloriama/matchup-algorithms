@@ -48,7 +48,7 @@ var Graph = require('./graph');
   ?
 */
 
-var peopleData = require('./csvToObject');
+var peopleData = require('./incorporateTapout');
 var personIds = Object.keys(peopleData);
 
 var compatibility = new Graph();
