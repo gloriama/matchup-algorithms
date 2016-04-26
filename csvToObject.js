@@ -35,18 +35,19 @@ lines.forEach(function(line, i) {
   // for now, we just add the no data
   } else {
     var personName;
-    var no = entries.reduce(function(acc, entry, j) {
+    var preferences = entries.reduce(function(acc, entry, j) {
       if (j === 0) {
         personName = entry;
-      } else if (entry === 'no') {
-        acc[j] = true;
+      } else if (entry === 'yes' || entry === 'no') {
+        acc[entry][j] = true;
       }
       return acc;
-    }, {});
+    }, { yes: {}, no: {} });
     var personId = byPersonName[personName];
-    _.extend(peopleData[personId], { no: no });
+    _.extend(peopleData[personId], preferences);
   }
 });
 
+console.log(peopleData);
 exports.peopleData = peopleData;
 exports.byPersonName = byPersonName;
