@@ -22,7 +22,6 @@ tapoutGroups.forEach(function(tapoutGroup) {
     var personId = byPersonName[personName];
     personNames.forEach(function(otherPersonName) {
       var otherPersonId = byPersonName[otherPersonName];
-      console.log(personName, otherPersonName, personId, otherPersonId);
       peopleData[personId].no[otherPersonId] = true;
     });
   });

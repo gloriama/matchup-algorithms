@@ -48,6 +48,5 @@ lines.forEach(function(line, i) {
   }
 });
 
-console.log(peopleData);
 exports.peopleData = peopleData;
 exports.byPersonName = byPersonName;
