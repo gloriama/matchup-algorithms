@@ -21,7 +21,6 @@ var peopleData = require('./incorporateTapout');
    }
 */
 var personIds = Object.keys(peopleData);
-console.log('original personIds', personIds);
 /*
   starting from no one, try to add people one at a time
   each person must be a mutual yes with all people already in the group
@@ -38,27 +37,32 @@ console.log('original personIds', personIds);
     returns all people if given no arguments
 */
 
-var getMutualYeses = function(group, candidatePool) { // optional second parameter
-  candidatePool = candidatePool || personIds;
+var getMutualYeses = function(group, candidatePool) {
   return group.reduce(function(acc, personId) {
     return acc.filter(function(currPersonId) {
-      return currPersonId in peopleData[personId].yes;
+      return
+        currPersonId !== personId &&
+        currPersonId in peopleData[personId].yes;
     })
   }, candidatePool);
 };
 
-var getMutualGroups = function(partialGroup) { // optional parameter
+var getMutualGroups = function(partialGroup, candidatePool) { // optional parameters
   partialGroup = partialGroup || [];
+  candidatePool = candidatePool || personIds;
 
   // if it is already a maximal group, return array containing just itself
-  var mutualYeses = getMutualYeses(partialGroup);
+  var mutualYeses = getMutualYeses(partialGroup, candidatePool);
   if (mutualYeses.length === 0) {
     return [partialGroup];
   }
 
   // otherwise return array of all possibilities larger than itself
   return mutualYeses.reduce(function(acc, mutualYes) {
-    return acc.concat(getMutualGroups(partialGroup.concat(mutualYes)));
+    partialGroup.push(mutualYes);
+    var result = acc.concat(getMutualGroups(partialGroup, mutualYeses));
+    partialGroup.pop();
+    return result;
   }, []);
 };
 
