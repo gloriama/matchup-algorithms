@@ -40,9 +40,11 @@ var personIds = Object.keys(peopleData);
 var getMutualYeses = function(group, candidatePool) {
   return group.reduce(function(acc, personId) {
     return acc.filter(function(currPersonId) {
-      return
+      return (
         currPersonId !== personId &&
-        currPersonId in peopleData[personId].yes;
+        currPersonId in peopleData[personId].yes &&
+        personId in peopleData[currPersonId].yes
+      );
     })
   }, candidatePool);
 };
@@ -53,8 +55,9 @@ var getMutualGroups = function(partialGroup, candidatePool) { // optional parame
 
   // if it is already a maximal group, return array containing just itself
   var mutualYeses = getMutualYeses(partialGroup, candidatePool);
+  // console.log('start', partialGroup, candidatePool, mutualYeses, 'end');
   if (mutualYeses.length === 0) {
-    return [partialGroup];
+    return [partialGroup.slice()];
   }
 
   // otherwise return array of all possibilities larger than itself
