@@ -11,7 +11,7 @@ Instead, the result might be something like: [
   [A, H]
 ]
 */
-
+var _ = require('underscore');
 var peopleData = require('./incorporateTapout');
 // key: id
 /* value: {
@@ -69,4 +69,35 @@ var getMutualGroups = function(partialGroup, candidatePool) { // optional parame
   }, []);
 };
 
-console.log(getMutualGroups());
+var removeDuplicateCombinations = function(arrayOfCombinations) {
+  arrayOfCombinations.forEach(function(combination) {
+    combination.sort();
+  })
+  arrayOfCombinations.sort();
+
+  return arrayOfCombinations.reduce(function(acc, combination) {
+    var lastCombination = acc[acc.length-1];
+    if (
+      !lastCombination ||
+      lastCombination.length !== combination.length ||
+      _.some(lastCombination, function(item, i) {
+        return item !== combination[i];
+      })) {
+      acc.push(combination);
+    }
+    return acc;
+  }, []);
+};
+
+var mutualGroups = removeDuplicateCombinations(getMutualGroups());
+mutualGroups.sort(function(a, b) {
+  return b.length - a.length;
+});
+
+console.log(mutualGroups.map(function(group) {
+  var groupAsNames = group.map(function(personId) {
+    return peopleData[personId].name;
+  });
+  groupAsNames.sort();
+  return groupAsNames;
+}));
