@@ -87,7 +87,7 @@ personIds.forEach(function(personId) {
 //   );
 // });
 
-var mutualGroups = compatibility.getMutualGroups();
+var mutualGroups = compatibility.createGrouping();
 
 console.log(mutualGroups.map(function(mutualGroup) {
   return mutualGroup.map(function(personId) {

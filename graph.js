@@ -101,51 +101,79 @@ Graph.prototype.getComponents = function() {
   });
 };
 
-Graph.prototype.getMutualGroups = function() {
+// INCOMPLETE
+// thoughts thus far:
+
+// start with one person, select someone randomly from their compatible list
+// then select someone randomly from who is compatible with both of them
+// then someone randomly who is compatible with all of them
+
+// then select another random person, and repeat to create another group
+
+// if at any point, another person cannot be selected, start over and try again
+
+Graph.prototype.createGrouping = function() {
   var nodeValues = Object.keys(this.edges);
 
-  // Keep track of what component index a nodeValue is in
-  // Initialized to -1 for each, i.e. not in a component
-  var componentIndex = nodeValues.reduce(function(acc, nodeValue) {
-    acc[nodeValue] = 0;
-    return acc;
-  }, {});
-
-  // An array of components
-  // Each component is an object of nodeValues that are connected in a graph
-    // key: nodeValue
-    // value: true (dummy value)
-  var components = [nodeValues.reduce(function(acc, nodeValue) {
-    acc[nodeValue] = true;
-    return acc;
-  }, {})];
-
-  nodeValues.forEach(function(nodeValue) {
-    // grab the nodes that nodeValue is compatible with
-      // from within the component that the node is in
-    var componentIndexForNode = componentIndex[nodeValue];
-    var componentForNode = components[componentIndexForNode];
-    var compatibleNodes = Object.keys(componentForNode).filter(function(neighbor) {
-      return neighbor === nodeValue || neighbor in this.edges[nodeValue];
-    }.bind(this));
-
-    // if it's not compatible with everything in its component,
-      // pull out all those compatible nodes into a new component
-    if (compatibleNodes.length !== Object.keys(componentForNode).length) {
-      var newComponent = {};
-      components.push(newComponent);
-      compatibleNodes.forEach(function(compatibleNode) {
-        delete componentForNode[compatibleNode];
-        newComponent[compatibleNode] = true;
-        componentIndex[compatibleNode] = components.length - 1;
-      });
+  while (true) {
+    var attempt = this._attemptGrouping();
+    if (attempt) {
+      return attempt;
     }
-  }.bind(this));
-
-  // Return components as an array of arrays (rather than array of sets)
-  return components.map(function(componentAsObject) {
-    return Object.keys(componentAsObject);
-  });
+  };
 };
 
+Graph.prototype._attemptGrouping = function() {
+  var nodeValues = Object.keys(this.edges);
+
+  var isAvailable = nodeValues.reduce(function(acc, nodeValue) {
+    acc[nodeValue] = true;
+    return acc;
+  }, {});
+  var numAvailable = nodeValues.length;
+
+  var grouping = [];
+  while (numAvailable > 0) {
+    var currGroup = [];
+    // select a random nodeValue that is available
+    var attemptCount = 0;
+    while (
+      numAvailable > 0 &&
+      currGroup.length < 4 &&
+      attemptCount < 100
+    ) {
+      var randomNodeValue = getRandomKey(isAvailable);
+      if (this._isMutuallyCompatible(currGroup.concat(randomNodeValue))) {
+        currGroup.push(randomNodeValue);
+        delete isAvailable[randomNodeValue];
+        numAvailable--;
+        attemptCount = 0;
+      } else {
+        attemptCount++;
+      }
+    }
+    if (attemptCount === 100) {
+      return null;
+    } else {
+      grouping.push(currGroup);
+    }
+  }
+  return grouping;
+};
+
+Graph.prototype._isMutuallyCompatible = function(nodeValues) {
+  for (var i = 0; i < nodeValues.length; i++) {
+    for (var j = 0; j < nodeValues.length; j++) {
+      if (i !== j && !this.isConnected(nodeValues[i], nodeValues[j])) {
+        return false;
+      }
+    }
+  }
+  return true;
+};
+
+var getRandomKey = function(obj) {
+  var keys = Object.keys(obj);
+  return keys[Math.floor(Math.random() * (keys.length))];
+}
 module.exports = Graph;
