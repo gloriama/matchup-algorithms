@@ -108,6 +108,9 @@ mutualGroups.sort(function(a, b) {
 //   return groupAsNames;
 // }));
 
+
+//------------------------------------------------
+// INCOMPLETE - temporarily abandoned for another approach
 // Given all the possible groups that all mutually want each other,
 // optimize an overall grouping where no one is repeated
 
@@ -146,4 +149,67 @@ var getOptimizedPartialGrouping = function(groups, used) {
   }
 };
 
-console.log(getOptimizedPartialGrouping(mutualGroups));
+// console.log(getOptimizedPartialGrouping(mutualGroups));
+//------------------------------------------------
+
+
+/*
+1) Create pairs
+  Analyze for people who have written the fewest yeses
+  Starting from those, find them a mutual pair with the fewest yeses
+  Try a few times to find a solution with the most people paired up
+
+2) After all possible pairs are found,
+  for each remaining person, still from fewest yeses to greatest,
+  add them to the pair (or triple) that maximizes mutual interest
+  Alternatively, add them to any pair (or triple) that includes someone they want
+*/
+
+var maximizeNumPeopleWithYes = function() {
+  var byFewestYeses = personIds.slice();
+  byFewestYeses.sort(function(a, b) {
+    return peopleData[a].yes.length < peopleData[b].yes.length;
+  });
+
+  var byNumYeses = personIds.reduce(function(acc, personId) {
+    var numYeses = peopleData[personId].yes.length;
+    acc[numYeses] = acc[numYeses] || {};
+    acc[numYeses][personId] = true;
+    return acc;
+  }, {});
+
+  var isUsed = {};
+  var grouping = [];
+  var toGroup = [];
+
+  byFewestYeses.forEach(function(personId) {
+    console.log('checking', personId);
+    if (isUsed[personId]) {
+      return;
+    }
+    var desiredPartners = Object.keys(peopleData[personId].yes);
+    var availableMutualPartners = desiredPartners.filter(function(desiredPartner) {
+      return (
+        desiredPartner !== personId &&
+        !(desiredPartner in isUsed) && //available
+        personId in peopleData[desiredPartner].yes
+      );
+    });
+    availableMutualPartners.sort(function(a, b) {
+      return peopleData[a].yes.length < peopleData[b].yes.length;
+    });
+    if (availableMutualPartners.length > 0) {
+      var partnerId = availableMutualPartners[0];
+      grouping.push([personId, partnerId]);
+      isUsed[personId] = true;
+      isUsed[partnerId] = true;
+    } else {
+      console.log('pushing them to toGroup');
+      toGroup.push(personId);
+    }
+  });
+  console.log(grouping);
+  console.log(toGroup);
+};
+
+maximizeNumPeopleWithYes();
