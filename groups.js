@@ -1,4 +1,5 @@
 var _ = require('underscore');
+var Graph = require('./graph');
 
 /*
   INPUT:
@@ -47,22 +48,49 @@ var _ = require('underscore');
   ?
 */
 
-var peopleData = {};
+var peopleData = require('./csvToObject');
 var personIds = Object.keys(peopleData);
 
 var compatibility = new Graph();
 
+// Add all people
 personIds.forEach(function(personId) {
   compatibility.addNode(personId);
 });
 
+// Add all edges
 personIds.forEach(function(personId) {
-  var compatiblePersonIds = _.reject(personIds, function(currPersonId) {
-    return currPersonId in peopleData[personId].no;
-  });
-  compatiblePersonIds.forEach(function(compatiblePersonId) {
-    compatibility.addEdge(personId, compatiblePersonId);
+  personIds.forEach(function(otherPersonId) {
+    compatibility.addEdge(personId, otherPersonId);
   });
 });
 
-console.log(compatibility.getMutualGroups());
+// Remove rejected edges
+personIds.forEach(function(personId) {
+  var incompatiblePersonIds = _.filter(personIds, function(currPersonId) {
+    return currPersonId in peopleData[personId].no;
+  });
+  incompatiblePersonIds.forEach(function(incompatiblePersonId) {
+    compatibility.removeEdge(personId, incompatiblePersonId);
+  });
+});
+
+// console.log(peopleData);
+// console.log(compatibility);
+
+// _.map(compatibility.edges, function(compatiblePersonIds, personId) {
+//   console.log(
+//     peopleData[personId].name + ':',
+//     _.map(compatiblePersonIds, function(_, compatiblePersonId) {
+//       return peopleData[compatiblePersonId].name;
+//     })
+//   );
+// });
+
+var mutualGroups = compatibility.getMutualGroups();
+
+console.log(mutualGroups.map(function(mutualGroup) {
+  return mutualGroup.map(function(personId) {
+    return peopleData[personId].name;
+  });
+}));
