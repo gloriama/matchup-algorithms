@@ -1,15 +1,20 @@
+var _ = require('underscore');
+
 /*
   INPUT:
 
-  1) peopleData: an array of person objects, with each object of the form:
-  {
-    id: Number,
-    name: String,
-    yes: Number[], // array of ids of people they want to work with
-    no: Number[] //array of ids of people they don't want to work with
-    preferredNo: Number[] //array of ids of people that, if possible,
-      // will also not be put in a group together 
-  }
+  1) peopleData: an object of person objects, with
+    key: person id,
+    value: data object of the form:
+      {
+        name: String,
+        yes: object with key: id, value: true,
+          // people they want to work with
+        no: object with key: id, value: true
+          // people they don't want to work with
+        preferredNo: object with key: id, value: true
+          // people they ideally shouldn't work with, but which are acceptable
+      }
 
   2) groupSize: a positive number indicating size of groups we'd like to form
   If the pool of people does not divide evenly, we will form some number of
@@ -28,11 +33,12 @@
   Algorithm:
 
   1) Minimal solution: only worry about no's
-  For each person, generate the array of people they can work with,
-    i.e. neither said no for the other
-  Start with the people who can work with the fewest people
-  Group them with the people who do not mutually have no's,
-    using up people who can work with the fewest people first 
+  Create a graph:
+    node: person id
+    edge: neither of the two corresponding people has said "no" to the other
+  Get all groups of mutually compatible people using graph.getMutualGroups()
+  If any group is smaller than groupSize, return null
+  Otherwise, split the groups up into size groupSize or groupSize-1
 
   2) Solution that also incorporates maximization of yes's
   ?
@@ -41,35 +47,22 @@
   ?
 */
 
-var peopleData = [];
+var peopleData = {};
+var personIds = Object.keys(peopleData);
 
-var compatibility = {}; // adjacency graph of people who didn't say no
-// key: id
-// value: array of ids for all people they can work with
+var compatibility = new Graph();
 
-var byFlexibility = []; // sorted array of ids from least to most flexible,
-// i.e. by least to greatest number of people they can work with
+personIds.forEach(function(personId) {
+  compatibility.addNode(personId);
+});
 
-var isAvailable = {}; // temp object to store whether or not someone is still
-// available to be added to a group
-// key: id
-// value: Boolean (defaulted to true)
+personIds.forEach(function(personId) {
+  var compatiblePersonIds = _.reject(personIds, function(currPersonId) {
+    return currPersonId in peopleData[personId].no;
+  });
+  compatiblePersonIds.forEach(function(compatiblePersonId) {
+    compatibility.addEdge(personId, compatiblePersonId);
+  });
+});
 
-for (var i = 0; i < byFlexibility.length; i++) {
-  var id = byFlexibility[i];
-
-  // continue if they've already been put in a group
-  if (!isAvailable[i]) {
-    continue;
-  }
-
-
-
-}
-
-
-// Create a graph
-// Nodes are connected if they can work with each other node
-// Check if any node is connected to FEWER than groupSize elements
-// If so, return null
-// Otherwise, print out all components
+console.log(compatibility.getMutualGroups());
