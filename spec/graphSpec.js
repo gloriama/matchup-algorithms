@@ -47,6 +47,17 @@ describe('Graph', function() {
     });
   });
 
+  describe('isConnected()', function () {
+    it('should return true for two nodes whose edge has been added', function () {
+      graph.addEdge(1, 2);
+      assert.isTrue(graph.isConnected(1, 2));
+    });
+    it('should return false for two nodes whose edge has been removed', function () {
+      graph.removeEdge(1, 2);
+      assert.isFalse(graph.isConnected(1, 2));
+    });
+  });
+
   describe('getComponents()', function () {
     it('should return an array', function () {
       var components = graph.getComponents();
@@ -87,7 +98,7 @@ describe('Graph', function() {
     });
     it('should not contain any node not in the graph', function () {
       var mutualGroups = graph.getMutualGroups();
-      console.log(mutualGroups);
+      // console.log(mutualGroups);
       var seen = {};
       mutualGroups.forEach(function(mutualGroup) {
         mutualGroup.forEach(function(nodeValue) {

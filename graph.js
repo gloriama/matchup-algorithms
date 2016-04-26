@@ -55,6 +55,10 @@ Graph.prototype.removeEdge = function(nodeValue1, nodeValue2) {
   return true;
 };
 
+Graph.prototype.isConnected = function(nodeValue1, nodeValue2) {
+  return nodeValue2 in this.edges[nodeValue1];
+};
+
 Graph.prototype.getComponents = function() {
   var nodeValues = Object.keys(this.edges);
 
