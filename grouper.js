@@ -31,20 +31,19 @@
 */
 
 var _ = require('underscore');
-var preferences = require('./incorporateTapout');
+var scraperOutput = require('./scrapers/index');
+
+var preferences = scraperOutput.preferences;
+var names = scraperOutput.names;
 var ids = Object.keys(preferences);
 
 var getRandomItem = function(array) {
   return array[Math.floor(Math.random() * array.length)];
 };
 
-var idToName = function(id) {
-  return preferences[id].name;
-}
-
 var idsToNames = function(ids) {
   return ids.map(function(id) {
-    return idToName(id);
+    return names[id];
   })
 };
 
