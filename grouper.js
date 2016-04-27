@@ -1,31 +1,33 @@
-// Third, least-greedy approach:
-// very similar to above, but don't worry about the mutualism
-
-// isPlaced = {} personId: Boolean
-
-// Still go by fewest yeses to most
 /*
-For each person
-  if not placed:
-    try to place them in an existing grouping where they are compatible and
-    which has someone they want
+  Input: peopleData
+  Output: Random grouping that
+  1) strictly honors "no" preferences, i.e. no one will be grouped with
+     someone they did not want to work with
+  2) approaches optimization of at least one "yes" preference for each
+     person
 
-    if there is someone they want who is not placed yet,
-    put them in a new group with that person
+  Overall Approach:
+  Order people by number of "yeses" they put down (low to high)
+  For each person in order,
+    Do our best to group them with someone they want
 
-    if not possible, place them in a group where they are compatible
-
-    if not possible, place them in a new group alone
-
-    if not possible, we're at a deadend and return null
-
-  if placed and the group doesn't have someone they want and we can add
-  someone they want,
-    add one of those people
-
-  Always true:
-  -When it's a given person's turn, that is the moment we will do our best
-   to give them someone they want
+  Detailed Approach:
+  Order people by number of "yeses" they put down (low to high)
+  For each person in order,
+    If they haven't already been placed in a group (on someone else's turn)
+      1) If we can (via finite number of random selections) find a compatible group that has someone they want
+        Add them to that group
+      2) If there's someone they want who is unplaced, and
+         we can still add a new group
+        Put them in a new group one of those people
+      3) If we can (via finite number of random selections) find a compatible group
+        Add them to that group
+      4) If we can still add a new group
+        Put them in a new group
+      5) Conclude we're out of options and return null
+    Else if the group they're in doesn't have someone they want, and
+    there's someone they want who is unplaced
+      Add one of those people to their group
 */
 
 var _ = require('underscore');
