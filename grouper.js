@@ -1,5 +1,5 @@
 /*
-  Input: peopleData
+  Input: preferences
   Output: Random grouping that
   1) strictly honors "no" preferences, i.e. no one will be grouped with
      someone they did not want to work with
@@ -31,15 +31,15 @@
 */
 
 var _ = require('underscore');
-var peopleData = require('./incorporateTapout');
-var ids = Object.keys(peopleData);
+var preferences = require('./incorporateTapout');
+var ids = Object.keys(preferences);
 
 var getRandomItem = function(array) {
   return array[Math.floor(Math.random() * array.length)];
 };
 
 var idToName = function(id) {
-  return peopleData[id].name;
+  return preferences[id].name;
 }
 
 var idsToNames = function(ids) {
@@ -51,24 +51,24 @@ var idsToNames = function(ids) {
 var isCompatibleWith = function(group, id) {
   return _.every(group, function(memberId) {
     return (
-      !(id in peopleData[memberId].no) &&
-      !(memberId in peopleData[id].no)
+      !(id in preferences[memberId].no) &&
+      !(memberId in preferences[id].no)
     );
   });
 }
 
 var hasMemberWantedBy = function(group, id) {
   return _.some(group, function(memberId) {
-    return memberId in peopleData[id].yes;
+    return memberId in preferences[id].yes;
   });
 };
 
-var attemptGrouping = function(peopleData) {
+var attemptGrouping = function(preferences) {
   var idToGroup = {};
 
   var byFewestYeses = ids.slice();
   byFewestYeses.sort(function(a, b) {
-    return peopleData[a].yes.length < peopleData[b].yes.length;
+    return preferences[a].yes.length < preferences[b].yes.length;
   });
 
   var grouping = byFewestYeses.reduce(function(acc, id) {
@@ -101,7 +101,7 @@ var attemptGrouping = function(peopleData) {
       }
 
       // 2) place in new group with someone compatible they want
-      var unplacedPeopleTheyWant = Object.keys(peopleData[id].yes).filter(function(wantedPerson) {
+      var unplacedPeopleTheyWant = Object.keys(preferences[id].yes).filter(function(wantedPerson) {
         return !(wantedPerson in idToGroup);
       });
       if (acc.length < 10 && unplacedPeopleTheyWant.length > 0) {
@@ -139,7 +139,7 @@ var attemptGrouping = function(peopleData) {
       // 5) blow up
       return null;
     } else {
-      var unplacedPeopleTheyWant = Object.keys(peopleData[id].yes).filter(function(wantedPerson) {
+      var unplacedPeopleTheyWant = Object.keys(preferences[id].yes).filter(function(wantedPerson) {
         return !(wantedPerson in idToGroup);
       });
 
@@ -179,7 +179,7 @@ var attemptGrouping = function(peopleData) {
 
 var bestAttempt;
 for (var numAttempts = 0; numAttempts < 1000; numAttempts++) {
-  var attempt = attemptGrouping(peopleData);
+  var attempt = attemptGrouping(preferences);
   if (
     attempt.grouping && (
       !bestAttempt ||
