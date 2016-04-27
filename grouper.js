@@ -32,7 +32,7 @@
 
 var _ = require('underscore');
 var peopleData = require('./incorporateTapout');
-var personIds = Object.keys(peopleData);
+var ids = Object.keys(peopleData);
 
 var getRandomItem = function(array) {
   return array[Math.floor(Math.random() * array.length)];
@@ -48,35 +48,35 @@ var idsToNames = function(ids) {
   })
 };
 
-var canBeAdded = function(group, personId) {
+var isCompatibleWith = function(group, id) {
   return _.every(group, function(memberId) {
     return (
-      !(personId in peopleData[memberId].no) &&
-      !(memberId in peopleData[personId].no)
+      !(id in peopleData[memberId].no) &&
+      !(memberId in peopleData[id].no)
     );
   });
 }
 
-var hasMemberTheyWant = function(group, personId) {
+var hasMemberWantedBy = function(group, id) {
   return _.some(group, function(memberId) {
-    return memberId in peopleData[personId].yes;
+    return memberId in peopleData[id].yes;
   });
 };
 
 var attemptGrouping = function(peopleData) {
-  var groupForPersonId = {};
+  var idToGroup = {};
 
-  var byFewestYeses = personIds.slice();
+  var byFewestYeses = ids.slice();
   byFewestYeses.sort(function(a, b) {
     return peopleData[a].yes.length < peopleData[b].yes.length;
   });
 
-  var grouping = byFewestYeses.reduce(function(acc, personId) {
+  var grouping = byFewestYeses.reduce(function(acc, id) {
     if (acc === null) {
       return null;
     }
 
-    var group = groupForPersonId[personId];
+    var group = idToGroup[id];
 
     if (!group) {
       // Try to do each "random" thing MAX_ATTEMPTS times
@@ -90,26 +90,26 @@ var attemptGrouping = function(peopleData) {
           var randomGroup = getRandomItem(acc);
           if (
             randomGroup.length < MAX_GROUP_SIZE &&
-            canBeAdded(randomGroup, personId) &&
-            hasMemberTheyWant(randomGroup, personId)
+            isCompatibleWith(randomGroup, id) &&
+            hasMemberWantedBy(randomGroup, id)
           ) {
-            randomGroup.push(personId);
-            groupForPersonId[personId] = randomGroup;
+            randomGroup.push(id);
+            idToGroup[id] = randomGroup;
             return acc;
           }
         }
       }
 
       // 2) place in new group with someone compatible they want
-      var unplacedPeopleTheyWant = Object.keys(peopleData[personId].yes).filter(function(wantedPerson) {
-        return !(wantedPerson in groupForPersonId);
+      var unplacedPeopleTheyWant = Object.keys(peopleData[id].yes).filter(function(wantedPerson) {
+        return !(wantedPerson in idToGroup);
       });
       if (acc.length < 10 && unplacedPeopleTheyWant.length > 0) {
         var randomPersonTheyWant = getRandomItem(unplacedPeopleTheyWant);
-        var newGroup = [personId, randomPersonTheyWant];
+        var newGroup = [id, randomPersonTheyWant];
         acc.push(newGroup);
-        groupForPersonId[personId] = newGroup;
-        groupForPersonId[randomPersonTheyWant] = newGroup;
+        idToGroup[id] = newGroup;
+        idToGroup[randomPersonTheyWant] = newGroup;
         return acc;
       }
 
@@ -119,10 +119,10 @@ var attemptGrouping = function(peopleData) {
           var randomGroup = getRandomItem(acc);
           if (
             randomGroup.length < MAX_GROUP_SIZE &&
-            canBeAdded(randomGroup, personId)
+            isCompatibleWith(randomGroup, id)
           ) {
-            randomGroup.push(personId);
-            groupForPersonId[personId] = randomGroup;
+            randomGroup.push(id);
+            idToGroup[id] = randomGroup;
             return acc;
           }
         }
@@ -130,50 +130,50 @@ var attemptGrouping = function(peopleData) {
 
       // 4) place in new group
       if (acc.length < 10) {
-        var newGroup = [personId];
+        var newGroup = [id];
         acc.push(newGroup);
-        groupForPersonId[personId] = newGroup;
+        idToGroup[id] = newGroup;
         return acc;
       }
 
       // 5) blow up
       return null;
     } else {
-      var unplacedPeopleTheyWant = Object.keys(peopleData[personId].yes).filter(function(wantedPerson) {
-        return !(wantedPerson in groupForPersonId);
+      var unplacedPeopleTheyWant = Object.keys(peopleData[id].yes).filter(function(wantedPerson) {
+        return !(wantedPerson in idToGroup);
       });
 
       if (
         group.length < MAX_GROUP_SIZE &&
-        !hasMemberTheyWant(group, personId) &&
+        !hasMemberWantedBy(group, id) &&
         unplacedPeopleTheyWant.length > 0
       ) {
         var randomPersonTheyWant = getRandomItem(unplacedPeopleTheyWant);
         group.push(randomPersonTheyWant);
-        groupForPersonId[randomPersonTheyWant] = group;
+        idToGroup[randomPersonTheyWant] = group;
       }
       return acc;
     }
   }, []);
 
-  var numPeopleWithSomeoneTheyWant;
-  var personIdsWithoutSomeoneTheyWant = [];
+  var numSatisfied;
+  var unsatisfiedIds = [];
   if (grouping) {
-    numPeopleWithSomeoneTheyWant = personIds.reduce(function(acc, personId) {
-      if (hasMemberTheyWant(groupForPersonId[personId], personId)) {
+    numSatisfied = ids.reduce(function(acc, id) {
+      if (hasMemberWantedBy(idToGroup[id], id)) {
         return acc + 1;
       } else {
-        personIdsWithoutSomeoneTheyWant.push(personId);
+        unsatisfiedIds.push(id);
         return acc;
       }
     }, 0);
   }
 
   return {
-    groupForPersonId: groupForPersonId,
+    idToGroup: idToGroup,
     grouping: grouping,
-    numPeopleWithSomeoneTheyWant: numPeopleWithSomeoneTheyWant,
-    personIdsWithoutSomeoneTheyWant: personIdsWithoutSomeoneTheyWant
+    numSatisfied: numSatisfied,
+    unsatisfiedIds: unsatisfiedIds
   };
 };
 
@@ -183,7 +183,7 @@ for (var numAttempts = 0; numAttempts < 1000; numAttempts++) {
   if (
     attempt.grouping && (
       !bestAttempt ||
-      attempt.numPeopleWithSomeoneTheyWant > bestAttempt.numPeopleWithSomeoneTheyWant
+      attempt.numSatisfied > bestAttempt.numSatisfied
     )
   ) {
     bestAttempt = attempt;
@@ -195,10 +195,10 @@ console.log(bestAttempt.grouping.map(function(group) {
 
 console.log(
   'num people who have someone they want to work with:',
-  bestAttempt.numPeopleWithSomeoneTheyWant
+  bestAttempt.numSatisfied
 );
 
 console.log(
   'people without someone they want:',
-  idsToNames(bestAttempt.personIdsWithoutSomeoneTheyWant)
+  idsToNames(bestAttempt.unsatisfiedIds)
 );
