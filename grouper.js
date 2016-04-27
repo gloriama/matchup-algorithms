@@ -38,6 +38,16 @@ var getRandomItem = function(array) {
   return array[Math.floor(Math.random() * array.length)];
 };
 
+var idToName = function(id) {
+  return peopleData[id].name;
+}
+
+var idsToNames = function(ids) {
+  return ids.map(function(id) {
+    return idToName(id);
+  })
+};
+
 var canBeAdded = function(group, personId) {
   return _.every(group, function(memberId) {
     return (
@@ -53,7 +63,7 @@ var hasMemberTheyWant = function(group, personId) {
   });
 };
 
-var groupUngreedily = function() {
+var attemptGrouping = function(peopleData) {
   var groupForPersonId = {};
 
   var byFewestYeses = personIds.slice();
@@ -169,7 +179,7 @@ var groupUngreedily = function() {
 
 var bestAttempt;
 for (var numAttempts = 0; numAttempts < 1000; numAttempts++) {
-  var attempt = groupUngreedily();
+  var attempt = attemptGrouping(peopleData);
   if (
     attempt.grouping && (
       !bestAttempt ||
@@ -180,9 +190,7 @@ for (var numAttempts = 0; numAttempts < 1000; numAttempts++) {
   }
 }
 console.log(bestAttempt.grouping.map(function(group) {
-  return group.map(function(personId) {
-    return peopleData[personId].name;
-  });
+  return idsToNames(group);
 }));
 
 console.log(
@@ -192,7 +200,5 @@ console.log(
 
 console.log(
   'people without someone they want:',
-  bestAttempt.personIdsWithoutSomeoneTheyWant.map(function(personId) {
-    return peopleData[personId].name;
-  })
+  idsToNames(bestAttempt.personIdsWithoutSomeoneTheyWant)
 );
