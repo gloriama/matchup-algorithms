@@ -441,21 +441,28 @@ var groupUngreedily = function() {
   }, []);
 
   var numPeopleWithSomeoneTheyWant;
+  var personIdsWithoutSomeoneTheyWant = [];
   if (grouping) {
     numPeopleWithSomeoneTheyWant = personIds.reduce(function(acc, personId) {
-      return hasMemberTheyWant(groupForPersonId[personId], personId) ? acc + 1 : acc;
+      if (hasMemberTheyWant(groupForPersonId[personId], personId)) {
+        return acc + 1;
+      } else {
+        personIdsWithoutSomeoneTheyWant.push(personId);
+        return acc;
+      }
     }, 0);
   }
 
   return {
     groupForPersonId: groupForPersonId,
     grouping: grouping,
-    numPeopleWithSomeoneTheyWant: numPeopleWithSomeoneTheyWant
+    numPeopleWithSomeoneTheyWant: numPeopleWithSomeoneTheyWant,
+    personIdsWithoutSomeoneTheyWant: personIdsWithoutSomeoneTheyWant
   };
 };
 
 var bestAttempt;
-for (var numAttempts = 0; numAttempts < 100000; numAttempts++) {
+for (var numAttempts = 0; numAttempts < 10000; numAttempts++) {
   var attempt = groupUngreedily();
   if (
     attempt.grouping && (
@@ -475,4 +482,11 @@ console.log(bestAttempt.grouping.map(function(group) {
 console.log(
   'num people who have someone they want to work with:',
   bestAttempt.numPeopleWithSomeoneTheyWant
+);
+
+console.log(
+  'people without someone they want:',
+  bestAttempt.personIdsWithoutSomeoneTheyWant.map(function(personId) {
+    return peopleData[personId].name;
+  })
 );
