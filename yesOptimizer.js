@@ -183,7 +183,6 @@ var maximizeNumPeopleWithYes = function() {
   var toGroup = [];
 
   byFewestYeses.forEach(function(personId) {
-    console.log('checking', personId);
     if (isUsed[personId]) {
       return;
     }
@@ -199,17 +198,281 @@ var maximizeNumPeopleWithYes = function() {
       return peopleData[a].yes.length < peopleData[b].yes.length;
     });
     if (availableMutualPartners.length > 0) {
-      var partnerId = availableMutualPartners[0];
+      // select closer to the front (fewest yeses), but randomize it
+      var partnerId = getFrontHeavyRandomElement(availableMutualPartners);
       grouping.push([personId, partnerId]);
       isUsed[personId] = true;
       isUsed[partnerId] = true;
     } else {
-      console.log('pushing them to toGroup');
       toGroup.push(personId);
     }
   });
-  console.log(grouping);
-  console.log(toGroup);
+  return {
+    pairs: grouping,
+    remaining: toGroup,
+  };
 };
 
-maximizeNumPeopleWithYes();
+// return a random element from the array, with elements near the front more likely
+// given x elements, the pie will be split into 1 + 2 + 3 ... + x pieces
+// 0th element is given x chances, 1th is given (x-1) chances, etc.
+var getFrontHeavyRandomElement = function(array) {
+  var length = array.length;
+  var pieSize = (length * (length + 1)) / 2;
+  var randomValue = Math.floor(Math.random() * pieSize);
+  for (var i = 0; i < pieSize; i++) {
+    // the ith element gets (length - i) chances
+    var numChances = length - i;
+    if (numChances - randomValue > 0) {
+      return array[i];
+    } else {
+      randomValue -= numChances;
+    }
+  }
+  throw new Error('should not have gotten here');
+};
+// example: 3 elements in array
+// their respective weighted chances are [3, 2, 1], with pieSize = 3+2+1 = 6
+// randomValue will be between 0~5 (inclusive)
+// if randomValue is 0~2, function returns 0
+// else if it's 3~4, function returns 1
+// else if it's 5, function returns 2
+
+var bestPairing;
+for (var i = 0; i < 1000; i++) {
+  var newPairing = maximizeNumPeopleWithYes();
+  if (!bestPairing || newPairing.pairs.length > bestPairing.pairs.length) {
+    bestPairing = newPairing;
+  }
+}
+// console.log(bestPairing, bestPairing.pairs.length);
+
+
+var getRandomItem = function(array) {
+  return array[Math.floor(Math.random() * array.length)];
+};
+
+var canBeAdded = function(group, personId) {
+  return (
+    _.every(group, function(memberId) {
+      return (
+        !(personId in peopleData[memberId].no) &&
+        !(memberId in peopleData[personId].no)
+      );
+    }) &&
+    _.some(group, function(memberId) {
+      return memberId in peopleData[personId].yes;
+    })
+  );
+}
+
+var attemptToComplete = function(partialGrouping) {
+  var partialGroupingPairsDeepCopy = partialGrouping.pairs.map(function(pair) {
+    return pair.slice();
+  });
+
+  partialGrouping.remaining.reduce(function(acc, personId) {
+    if (acc === null) {
+      return null;
+    }
+    // pick a random pair, until you find one that has someone they like
+    // and no mutual incompatibility
+    //after 100 attempts, consider it a failure
+    var numAttempts = 0;
+    while (numAttempts < 100) {
+      var randomPair = getRandomItem(acc);
+      if (canBeAdded(randomPair, personId)) {
+        randomPair.push(personId);
+        return acc;
+      }
+      numAttempts++;
+    }
+    return null;
+  }, partialGroupingPairsDeepCopy);
+};
+
+// var numAttempts = 0;
+// while (numAttempts < 100) {
+//   var attempt = attemptToComplete(bestPairing);
+//   if (attempt) {
+//     console.log(attempt);
+//     break;
+//   }
+// }
+
+
+// Third, least-greedy approach:
+// very similar to above, but don't worry about the mutualism
+
+// isPlaced = {} personId: Boolean
+
+// Still go by fewest yeses to most
+/*
+For each person
+  if not placed:
+    try to place them in an existing grouping where they are compatible and
+    which has someone they want
+
+    if there is someone they want who is not placed yet,
+    put them in a new group with that person
+
+    if not possible, place them in a group where they are compatible
+
+    if not possible, place them in a new group alone
+
+    if not possible, we're at a deadend and return null
+
+  if placed and the group doesn't have someone they want and we can add
+  someone they want,
+    add one of those people
+
+  Always true:
+  -When it's a given person's turn, that is the moment we will do our best
+   to give them someone they want
+*/
+
+// Redefinition of earlier, to only check that they are not incompatible
+canBeAdded = function(group, personId) {
+  return _.every(group, function(memberId) {
+    return (
+      !(personId in peopleData[memberId].no) &&
+      !(memberId in peopleData[personId].no)
+    );
+  });
+}
+
+var hasMemberTheyWant = function(group, personId) {
+  return _.some(group, function(memberId) {
+    return memberId in peopleData[personId].yes;
+  });
+};
+
+var groupUngreedily = function() {
+  var groupForPersonId = {};
+
+  var byFewestYeses = personIds.slice();
+  byFewestYeses.sort(function(a, b) {
+    return peopleData[a].yes.length < peopleData[b].yes.length;
+  });
+
+  var grouping = byFewestYeses.reduce(function(acc, personId) {
+    if (acc === null) {
+      return null;
+    }
+
+    var group = groupForPersonId[personId];
+
+    if (!group) {
+      // Try to do each "random" thing MAX_ATTEMPTS times
+      var numAttempts;
+      var MAX_ATTEMPTS = 20;
+      var MAX_GROUP_SIZE = 4;
+
+      // 1) place in random compatible group < MAX_GROUP_SIZEppl that has someone they want
+      if (acc.length > 0) {
+        for (numAttempts = 0; numAttempts < MAX_ATTEMPTS; numAttempts++) {
+          var randomGroup = getRandomItem(acc);
+          if (
+            randomGroup.length < MAX_GROUP_SIZE &&
+            canBeAdded(randomGroup, personId) &&
+            hasMemberTheyWant(randomGroup, personId)
+          ) {
+            randomGroup.push(personId);
+            groupForPersonId[personId] = randomGroup;
+            return acc;
+          }
+        }
+      }
+
+      // 2) place in new group with someone compatible they want
+      var unplacedPeopleTheyWant = Object.keys(peopleData[personId].yes).filter(function(wantedPerson) {
+        return !(wantedPerson in groupForPersonId);
+      });
+      if (acc.length < 10 && unplacedPeopleTheyWant.length > 0) {
+        var randomPersonTheyWant = getRandomItem(unplacedPeopleTheyWant);
+        var newGroup = [personId, randomPersonTheyWant];
+        acc.push(newGroup);
+        groupForPersonId[personId] = newGroup;
+        groupForPersonId[randomPersonTheyWant] = newGroup;
+        return acc;
+      }
+
+      // 3) place in random compatible group
+      if (acc.length > 0) {
+        for (numAttempts = 0; numAttempts < MAX_ATTEMPTS; numAttempts++) {
+          var randomGroup = getRandomItem(acc);
+          if (
+            randomGroup.length < MAX_GROUP_SIZE &&
+            canBeAdded(randomGroup, personId)
+          ) {
+            randomGroup.push(personId);
+            groupForPersonId[personId] = randomGroup;
+            return acc;
+          }
+        }
+      }
+
+      // 4) place in new group
+      if (acc.length < 10) {
+        var newGroup = [personId];
+        acc.push(newGroup);
+        groupForPersonId[personId] = newGroup;
+        return acc;
+      }
+
+      // 5) blow up
+      return null;
+    } else {
+      var unplacedPeopleTheyWant = Object.keys(peopleData[personId].yes).filter(function(wantedPerson) {
+        return !(wantedPerson in groupForPersonId);
+      });
+
+      if (
+        group.length < MAX_GROUP_SIZE &&
+        !hasMemberTheyWant(group, personId) &&
+        unplacedPeopleTheyWant.length > 0
+      ) {
+        var randomPersonTheyWant = getRandomItem(unplacedPeopleTheyWant);
+        group.push(randomPersonTheyWant);
+        groupForPersonId[randomPersonTheyWant] = group;
+      }
+      return acc;
+    }
+  }, []);
+
+  var numPeopleWithSomeoneTheyWant;
+  if (grouping) {
+    numPeopleWithSomeoneTheyWant = personIds.reduce(function(acc, personId) {
+      return hasMemberTheyWant(groupForPersonId[personId], personId) ? acc + 1 : acc;
+    }, 0);
+  }
+
+  return {
+    groupForPersonId: groupForPersonId,
+    grouping: grouping,
+    numPeopleWithSomeoneTheyWant: numPeopleWithSomeoneTheyWant
+  };
+};
+
+var bestAttempt;
+for (var numAttempts = 0; numAttempts < 100000; numAttempts++) {
+  var attempt = groupUngreedily();
+  if (
+    attempt.grouping && (
+      !bestAttempt ||
+      attempt.numPeopleWithSomeoneTheyWant > bestAttempt.numPeopleWithSomeoneTheyWant
+    )
+  ) {
+    bestAttempt = attempt;
+  }
+}
+console.log(bestAttempt.grouping.map(function(group) {
+  return group.map(function(personId) {
+    return peopleData[personId].name;
+  });
+}));
+
+console.log(
+  'num people who have someone they want to work with:',
+  bestAttempt.numPeopleWithSomeoneTheyWant
+);
