@@ -47,20 +47,42 @@ var idsToNames = function(ids) {
   })
 };
 
-var isCompatibleWith = function(group, id) {
-  return _.every(group, function(memberId) {
-    return (
-      !(id in preferences[memberId].no) &&
-      !(memberId in preferences[id].no)
-    );
-  });
-}
+// ---- Group class ----
+var GroupCreator = function(preferences, idToGroup, maxGroupSize) {
+  var Group = function() {
+    this.members = [];
+  };
 
-var hasMemberWantedBy = function(group, id) {
-  return _.some(group, function(memberId) {
-    return memberId in preferences[id].yes;
-  });
-};
+  Group.prototype.isFull = function() {
+    return this.members.length === maxGroupSize;
+  }
+
+  Group.prototype.add = function(member) {
+    if (this.isFull()) {
+      return;
+    }
+    this.members.push(member);
+    idToGroup[member] = this;
+  };
+
+  Group.prototype.isCompatibleWith = function(candidate) {
+    return _.every(this.members, function(member) {
+      return (
+        !(candidate in preferences[member].no) &&
+        !(member in preferences[candidate].no)
+      );
+    });
+  };
+
+  Group.prototype.hasMemberWantedBy = function(candidate) {
+    return _.some(this.members, function(member) {
+      return member in preferences[candidate].yes;
+    });
+  };
+
+  return Group;
+}
+// ---- end Group class ----
 
 var attemptGrouping = function(preferences) {
   var MAX_ATTEMPTS = 20;
@@ -68,6 +90,7 @@ var attemptGrouping = function(preferences) {
   var MAX_NUM_GROUPS = Math.ceil(ids.length / MAX_GROUP_SIZE);
 
   var idToGroup = {};
+  var Group = GroupCreator(preferences, idToGroup, MAX_GROUP_SIZE);
 
   var byFewestYeses = ids.slice();
   byFewestYeses.sort(function(a, b) {
@@ -80,22 +103,21 @@ var attemptGrouping = function(preferences) {
     }
 
     var group = idToGroup[id];
-
     if (!group) {
       // Try to do each "random" thing MAX_ATTEMPTS times
       var numAttempts;
 
-      // 1) place in random compatible group < MAX_GROUP_SIZEppl that has someone they want
+      // 1) place in random compatible group smaller than MAX_GROUP_SIZE
+      //    that has someone they want
       if (acc.length > 0) {
         for (numAttempts = 0; numAttempts < MAX_ATTEMPTS; numAttempts++) {
           var randomGroup = getRandomItem(acc);
           if (
-            randomGroup.length < MAX_GROUP_SIZE &&
-            isCompatibleWith(randomGroup, id) &&
-            hasMemberWantedBy(randomGroup, id)
+            !randomGroup.isFull() &&
+            randomGroup.isCompatibleWith(id) &&
+            randomGroup.hasMemberWantedBy(id)
           ) {
-            randomGroup.push(id);
-            idToGroup[id] = randomGroup;
+            randomGroup.add(id);
             return acc;
           }
         }
@@ -107,10 +129,10 @@ var attemptGrouping = function(preferences) {
       });
       if (acc.length < MAX_NUM_GROUPS && unplacedPeopleTheyWant.length > 0) {
         var randomPersonTheyWant = getRandomItem(unplacedPeopleTheyWant);
-        var newGroup = [id, randomPersonTheyWant];
+        var newGroup = new Group();
+        newGroup.add(id);
+        newGroup.add(randomPersonTheyWant);
         acc.push(newGroup);
-        idToGroup[id] = newGroup;
-        idToGroup[randomPersonTheyWant] = newGroup;
         return acc;
       }
 
@@ -119,11 +141,10 @@ var attemptGrouping = function(preferences) {
         for (numAttempts = 0; numAttempts < MAX_ATTEMPTS; numAttempts++) {
           var randomGroup = getRandomItem(acc);
           if (
-            randomGroup.length < MAX_GROUP_SIZE &&
-            isCompatibleWith(randomGroup, id)
+            !randomGroup.isFull() &&
+            randomGroup.isCompatibleWith(id)
           ) {
-            randomGroup.push(id);
-            idToGroup[id] = randomGroup;
+            randomGroup.add(id);
             return acc;
           }
         }
@@ -131,9 +152,9 @@ var attemptGrouping = function(preferences) {
 
       // 4) place in new group
       if (acc.length < MAX_NUM_GROUPS) {
-        var newGroup = [id];
+        var newGroup = new Group();
+        newGroup.add(id);
         acc.push(newGroup);
-        idToGroup[id] = newGroup;
         return acc;
       }
 
@@ -145,13 +166,12 @@ var attemptGrouping = function(preferences) {
       });
 
       if (
-        group.length < MAX_GROUP_SIZE &&
-        !hasMemberWantedBy(group, id) &&
+        !group.isFull() &&
+        !group.hasMemberWantedBy(id) &&
         unplacedPeopleTheyWant.length > 0
       ) {
         var randomPersonTheyWant = getRandomItem(unplacedPeopleTheyWant);
-        group.push(randomPersonTheyWant);
-        idToGroup[randomPersonTheyWant] = group;
+        group.add(randomPersonTheyWant);
       }
       return acc;
     }
@@ -161,7 +181,8 @@ var attemptGrouping = function(preferences) {
   var unsatisfiedIds = [];
   if (grouping) {
     numSatisfied = ids.reduce(function(acc, id) {
-      if (hasMemberWantedBy(idToGroup[id], id)) {
+      var group = idToGroup[id];
+      if (group.hasMemberWantedBy(id)) {
         return acc + 1;
       } else {
         unsatisfiedIds.push(id);
@@ -190,7 +211,7 @@ for (var numAttempts = 0; numAttempts < 1000; numAttempts++) {
 }
 
 console.log(bestAttempt.grouping.map(function(group) {
-  return idsToNames(group);
+  return idsToNames(group.members);
 }));
 console.log('# satisfied:', bestAttempt.numSatisfied);
 console.log('Unsatisifed:', idsToNames(bestAttempt.unsatisfiedIds));
