@@ -6,32 +6,23 @@
   2) approaches optimization of at least one "yes" preference for each
      person
 
-  Overall Approach:
-  Order people by number of "yeses" they put down (low to high)
-  For each person in order,
-    Do our best to group them with someone they want
-
-  Detailed Approach:
+  Algorithm:
   Order people by number of "yeses" they put down (low to high)
   For each person in order,
     If they haven't already been placed in a group (on someone else's turn)
-      1) If we can (via finite number of random selections) find a compatible group that has someone they want
-        Add them to that group
-      2) If there's someone they want who is unplaced, and
-         we can still add a new group
-        Put them in a new group one of those people
-      3) If we can (via finite number of random selections) find a compatible group
-        Add them to that group
-      4) If we can still add a new group
-        Put them in a new group
+      1) Try to add to a random compatible group that has someone they want
+      2) Place in a new group with someone they want
+      3) Try to add to a random compatible group
+      4) Place in a new group
       5) Conclude we're out of options and return null
-    Else if the group they're in doesn't have someone they want, and
-    there's someone they want who is unplaced
-      Add one of those people to their group
+    Else
+      If the group they're in doesn't have someone they want,
+      Try to add someone they want
 */
 
 var _ = require('underscore');
 var scraperOutput = require('./scrapers/index');
+var MAX_ATTEMPTS = 5; // used in Grouping, can be set to any positive integer
 
 var preferences = scraperOutput.preferences;
 var names = scraperOutput.names;
@@ -133,11 +124,8 @@ Grouping.prototype.getAvailableYesesFor = function(member) {
   }.bind(this));
 };
 
-var attemptGrouping = function(preferences) {
-  var MAX_GROUP_SIZE = 4;
-  var MAX_ATTEMPTS = 20;
-
-  var grouping = new Grouping(preferences, MAX_GROUP_SIZE, MAX_ATTEMPTS);
+var attemptGrouping = function(preferences, maxGroupSize) {
+  var grouping = new Grouping(preferences, maxGroupSize, MAX_ATTEMPTS);
   var Group = grouping.Group;
 
   var byFewestYeses = ids.slice();
@@ -226,19 +214,22 @@ var attemptGrouping = function(preferences) {
   };
 };
 
-var bestAttempt;
-for (var numAttempts = 0; numAttempts < 1000; numAttempts++) {
-  var attempt = attemptGrouping(preferences);
+// ---- MAIN ----
+// Find and print the best grouping
+var bestGrouping;
+var MAX_GROUP_SIZE = 4;
+for (var i = 0; i < 1000; i++) {
+  var attempt = attemptGrouping(preferences, MAX_GROUP_SIZE);
   if (
-    !bestAttempt ||
-    attempt.grouping && attempt.numSatisfied > bestAttempt.numSatisfied
+    !bestGrouping ||
+    attempt.grouping && attempt.numSatisfied > bestGrouping.numSatisfied
   ) {
-    bestAttempt = attempt;
+    bestGrouping = attempt;
   }
 }
 
-console.log(bestAttempt.grouping.groups.map(function(group) {
+console.log(bestGrouping.grouping.groups.map(function(group) {
   return idsToNames(group.members);
 }));
-console.log('# satisfied:', bestAttempt.numSatisfied);
-console.log('Unsatisifed:', idsToNames(bestAttempt.unsatisfiedIds));
+console.log('# satisfied:', bestGrouping.numSatisfied);
+console.log('Unsatisifed:', idsToNames(bestGrouping.unsatisfiedIds));
