@@ -63,6 +63,10 @@ var hasMemberWantedBy = function(group, id) {
 };
 
 var attemptGrouping = function(preferences) {
+  var MAX_ATTEMPTS = 20;
+  var MAX_GROUP_SIZE = 4;
+  var MAX_NUM_GROUPS = Math.ceil(ids.length / MAX_GROUP_SIZE);
+
   var idToGroup = {};
 
   var byFewestYeses = ids.slice();
@@ -80,8 +84,6 @@ var attemptGrouping = function(preferences) {
     if (!group) {
       // Try to do each "random" thing MAX_ATTEMPTS times
       var numAttempts;
-      var MAX_ATTEMPTS = 20;
-      var MAX_GROUP_SIZE = 4;
 
       // 1) place in random compatible group < MAX_GROUP_SIZEppl that has someone they want
       if (acc.length > 0) {
@@ -103,7 +105,7 @@ var attemptGrouping = function(preferences) {
       var unplacedPeopleTheyWant = Object.keys(preferences[id].yes).filter(function(wantedPerson) {
         return !(wantedPerson in idToGroup);
       });
-      if (acc.length < 10 && unplacedPeopleTheyWant.length > 0) {
+      if (acc.length < MAX_NUM_GROUPS && unplacedPeopleTheyWant.length > 0) {
         var randomPersonTheyWant = getRandomItem(unplacedPeopleTheyWant);
         var newGroup = [id, randomPersonTheyWant];
         acc.push(newGroup);
@@ -128,7 +130,7 @@ var attemptGrouping = function(preferences) {
       }
 
       // 4) place in new group
-      if (acc.length < 10) {
+      if (acc.length < MAX_NUM_GROUPS) {
         var newGroup = [id];
         acc.push(newGroup);
         idToGroup[id] = newGroup;
@@ -155,7 +157,7 @@ var attemptGrouping = function(preferences) {
     }
   }, []);
 
-  var numSatisfied;
+  var numSatisfied = 0;
   var unsatisfiedIds = [];
   if (grouping) {
     numSatisfied = ids.reduce(function(acc, id) {
@@ -180,24 +182,15 @@ var bestAttempt;
 for (var numAttempts = 0; numAttempts < 1000; numAttempts++) {
   var attempt = attemptGrouping(preferences);
   if (
-    attempt.grouping && (
-      !bestAttempt ||
-      attempt.numSatisfied > bestAttempt.numSatisfied
-    )
+    !bestAttempt ||
+    attempt.grouping && attempt.numSatisfied > bestAttempt.numSatisfied
   ) {
     bestAttempt = attempt;
   }
 }
+
 console.log(bestAttempt.grouping.map(function(group) {
   return idsToNames(group);
 }));
-
-console.log(
-  'num people who have someone they want to work with:',
-  bestAttempt.numSatisfied
-);
-
-console.log(
-  'people without someone they want:',
-  idsToNames(bestAttempt.unsatisfiedIds)
-);
+console.log('# satisfied:', bestAttempt.numSatisfied);
+console.log('Unsatisifed:', idsToNames(bestAttempt.unsatisfiedIds));
