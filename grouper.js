@@ -51,6 +51,10 @@ var idsToNames = function(ids) {
 var GroupCreator = function(preferences, maxGroupSize, memberToGroup) {
   var Group = function() {
     this.members = [];
+    var initialMembers = Array.prototype.slice.call(arguments);
+    initialMembers.forEach(function(member) {
+      this.add(member);
+    }.bind(this));
   };
 
   Group.prototype.isFull = function() {
@@ -162,10 +166,7 @@ var attemptGrouping = function(preferences) {
       });
       if (!grouping.isFull() && availableWantedPeople.length > 0) {
         var randomPersonTheyWant = getRandomItem(availableWantedPeople);
-        var newGroup = new Group();
-        newGroup.add(id);
-        newGroup.add(randomPersonTheyWant);
-        grouping.add(newGroup);
+        grouping.add(new Group(id, randomPersonTheyWant));
         return;
       }
 
@@ -185,9 +186,7 @@ var attemptGrouping = function(preferences) {
 
       // 4) place in new group
       if (!grouping.isFull()) {
-        var newGroup = new Group();
-        newGroup.add(id);
-        grouping.add(newGroup);
+        grouping.add(new Group(id));
         return;
       }
 
