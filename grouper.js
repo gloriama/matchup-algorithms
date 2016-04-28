@@ -87,15 +87,12 @@ var GroupCreator = function(preferences, maxGroupSize, memberToGroup) {
   return Group;
 };
 
-var Grouping = function(preferences, maxGroupSize) {
+var Grouping = function(preferences, maxGroupSize, maxAttempts) {
+  this.maxAttempts = maxAttempts;
   this.maxNumGroups = Math.ceil(Object.keys(preferences).length / maxGroupSize);
   this.memberToGroup = {};
   this.Group = GroupCreator(preferences, maxGroupSize, this.memberToGroup);
   this.groups = [];
-};
-
-Grouping.prototype.isEmpty = function() {
-  return this.groups.length === 0;
 };
 
 Grouping.prototype.isFull = function() {
@@ -117,16 +114,24 @@ Grouping.prototype.contains = function(candidate) {
   return candidate in this.memberToGroup;
 };
 
-Grouping.prototype.getRandomGroup = function() {
-  return getRandomItem(this.groups);
+// May return null, if either no group exists or we fail to find
+// a random group that passes the filter after {maxAttempts} tries
+Grouping.prototype.getRandomGroup = function(filter) {
+  filter = filter || function(candidateGroup) { return true; };
+  for (var i = 0; i < this.maxAttempts; i++) {
+    var randomGroup = getRandomItem(this.groups);
+    if (randomGroup && filter(randomGroup)) {
+      return randomGroup;
+    }
+  }
+  return null;
 };
 
 var attemptGrouping = function(preferences) {
-  var MAX_ATTEMPTS = 20;
   var MAX_GROUP_SIZE = 4;
-  var MAX_NUM_GROUPS = Math.ceil(ids.length / MAX_GROUP_SIZE);
+  var MAX_ATTEMPTS = 20;
 
-  var grouping = new Grouping(preferences, MAX_GROUP_SIZE);
+  var grouping = new Grouping(preferences, MAX_GROUP_SIZE, MAX_ATTEMPTS);
   var Group = grouping.Group;
 
   var byFewestYeses = ids.slice();
@@ -141,47 +146,40 @@ var attemptGrouping = function(preferences) {
 
     var group = grouping.getGroupFor(id);
     if (!group) {
-      // Try to do each "random" thing MAX_ATTEMPTS times
-      var numAttempts;
-
       // 1) place in random compatible group smaller than MAX_GROUP_SIZE
       //    that has someone they want
-      if (!grouping.isEmpty()) {
-        for (numAttempts = 0; numAttempts < MAX_ATTEMPTS; numAttempts++) {
-          var randomGroup = grouping.getRandomGroup();
-          if (
-            !randomGroup.isFull() &&
-            randomGroup.isCompatibleWith(id) &&
-            randomGroup.hasMemberWantedBy(id)
-          ) {
-            randomGroup.add(id);
-            return;
-          }
-        }
+      group = grouping.getRandomGroup(function(candidateGroup) {
+        return (
+          !candidateGroup.isFull() &&
+          candidateGroup.isCompatibleWith(id) &&
+          candidateGroup.hasMemberWantedBy(id)
+        );
+      });
+      if (group) {
+        group.add(id);
+        return;
       }
 
       // 2) place in new group with someone compatible they want
-      var availableWantedPeople = Object.keys(preferences[id].yes).filter(function(wantedPerson) {
+      var availableYeses = Object.keys(preferences[id].yes).filter(function(wantedPerson) {
         return !grouping.contains(wantedPerson);
       });
-      if (!grouping.isFull() && availableWantedPeople.length > 0) {
-        var randomPersonTheyWant = getRandomItem(availableWantedPeople);
-        grouping.add(new Group(id, randomPersonTheyWant));
+      if (!grouping.isFull() && availableYeses.length > 0) {
+        var randomAvailableYes = getRandomItem(availableYeses);
+        grouping.add(new Group(id, randomAvailableYes));
         return;
       }
 
       // 3) place in random compatible group
-      if (!grouping.isEmpty()) {
-        for (numAttempts = 0; numAttempts < MAX_ATTEMPTS; numAttempts++) {
-          var randomGroup = grouping.getRandomGroup();
-          if (
-            !randomGroup.isFull() &&
-            randomGroup.isCompatibleWith(id)
-          ) {
-            randomGroup.add(id);
-            return;
-          }
-        }
+      group = grouping.getRandomGroup(function(candidateGroup) {
+        return (
+          !candidateGroup.isFull() &&
+          candidateGroup.isCompatibleWith(id)
+        );
+      });
+      if (group) {
+        group.add(id);
+        return;
       }
 
       // 4) place in new group
@@ -190,19 +188,19 @@ var attemptGrouping = function(preferences) {
         return;
       }
 
-      // 5) blow up
+      // 5) blow up: we cannot add this person
       grouping = null;
     } else {
-      var availableWantedPeople = Object.keys(preferences[id].yes).filter(function(wantedPerson) {
+      var availableYeses = Object.keys(preferences[id].yes).filter(function(wantedPerson) {
         return !grouping.contains(wantedPerson);
       });
       if (
         !group.isFull() &&
         !group.hasMemberWantedBy(id) &&
-        availableWantedPeople.length > 0
+        availableYeses.length > 0
       ) {
-        var randomPersonTheyWant = getRandomItem(availableWantedPeople);
-        group.add(randomPersonTheyWant);
+        var randomAvailableYes = getRandomItem(availableYeses);
+        group.add(randomAvailableYes);
       }
     }
   });
