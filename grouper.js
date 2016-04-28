@@ -47,8 +47,8 @@ var idsToNames = function(ids) {
   })
 };
 
-// ---- Group class ----
-var GroupCreator = function(preferences, idToGroup, maxGroupSize) {
+// Returns a Group class, bound to preferences and memberToGroup objects
+var GroupCreator = function(preferences, maxGroupSize, memberToGroup) {
   var Group = function() {
     this.members = [];
   };
@@ -62,7 +62,7 @@ var GroupCreator = function(preferences, idToGroup, maxGroupSize) {
       return;
     }
     this.members.push(member);
-    idToGroup[member] = this;
+    memberToGroup[member] = this;
   };
 
   Group.prototype.isCompatibleWith = function(candidate) {
@@ -81,107 +81,138 @@ var GroupCreator = function(preferences, idToGroup, maxGroupSize) {
   };
 
   return Group;
-}
-// ---- end Group class ----
+};
+
+var Grouping = function(preferences, maxGroupSize) {
+  this.maxNumGroups = Math.ceil(Object.keys(preferences).length / maxGroupSize);
+  this.memberToGroup = {};
+  this.Group = GroupCreator(preferences, maxGroupSize, this.memberToGroup);
+  this.groups = [];
+};
+
+Grouping.prototype.isEmpty = function() {
+  return this.groups.length === 0;
+};
+
+Grouping.prototype.isFull = function() {
+  return this.groups.length === this.maxNumGroups;
+};
+
+Grouping.prototype.add = function(group) {
+  if (this.isFull()) {
+    return;
+  }
+  this.groups.push(group);
+};
+
+Grouping.prototype.getGroupFor = function(member) {
+  return this.memberToGroup[member];
+};
+
+Grouping.prototype.contains = function(candidate) {
+  return candidate in this.memberToGroup;
+};
+
+Grouping.prototype.getRandomGroup = function() {
+  return getRandomItem(this.groups);
+};
 
 var attemptGrouping = function(preferences) {
   var MAX_ATTEMPTS = 20;
   var MAX_GROUP_SIZE = 4;
   var MAX_NUM_GROUPS = Math.ceil(ids.length / MAX_GROUP_SIZE);
 
-  var idToGroup = {};
-  var Group = GroupCreator(preferences, idToGroup, MAX_GROUP_SIZE);
+  var grouping = new Grouping(preferences, MAX_GROUP_SIZE);
+  var Group = grouping.Group;
 
   var byFewestYeses = ids.slice();
   byFewestYeses.sort(function(a, b) {
     return preferences[a].yes.length < preferences[b].yes.length;
   });
 
-  var grouping = byFewestYeses.reduce(function(acc, id) {
-    if (acc === null) {
-      return null;
+  byFewestYeses.forEach(function(id) {
+    if (grouping === null) {
+      return;
     }
 
-    var group = idToGroup[id];
+    var group = grouping.getGroupFor(id);
     if (!group) {
       // Try to do each "random" thing MAX_ATTEMPTS times
       var numAttempts;
 
       // 1) place in random compatible group smaller than MAX_GROUP_SIZE
       //    that has someone they want
-      if (acc.length > 0) {
+      if (!grouping.isEmpty()) {
         for (numAttempts = 0; numAttempts < MAX_ATTEMPTS; numAttempts++) {
-          var randomGroup = getRandomItem(acc);
+          var randomGroup = grouping.getRandomGroup();
           if (
             !randomGroup.isFull() &&
             randomGroup.isCompatibleWith(id) &&
             randomGroup.hasMemberWantedBy(id)
           ) {
             randomGroup.add(id);
-            return acc;
+            return;
           }
         }
       }
 
       // 2) place in new group with someone compatible they want
-      var unplacedPeopleTheyWant = Object.keys(preferences[id].yes).filter(function(wantedPerson) {
-        return !(wantedPerson in idToGroup);
+      var availableWantedPeople = Object.keys(preferences[id].yes).filter(function(wantedPerson) {
+        return !grouping.contains(wantedPerson);
       });
-      if (acc.length < MAX_NUM_GROUPS && unplacedPeopleTheyWant.length > 0) {
-        var randomPersonTheyWant = getRandomItem(unplacedPeopleTheyWant);
+      if (!grouping.isFull() && availableWantedPeople.length > 0) {
+        var randomPersonTheyWant = getRandomItem(availableWantedPeople);
         var newGroup = new Group();
         newGroup.add(id);
         newGroup.add(randomPersonTheyWant);
-        acc.push(newGroup);
-        return acc;
+        grouping.add(newGroup);
+        return;
       }
 
       // 3) place in random compatible group
-      if (acc.length > 0) {
+      if (!grouping.isEmpty()) {
         for (numAttempts = 0; numAttempts < MAX_ATTEMPTS; numAttempts++) {
-          var randomGroup = getRandomItem(acc);
+          var randomGroup = grouping.getRandomGroup();
           if (
             !randomGroup.isFull() &&
             randomGroup.isCompatibleWith(id)
           ) {
             randomGroup.add(id);
-            return acc;
+            return;
           }
         }
       }
 
       // 4) place in new group
-      if (acc.length < MAX_NUM_GROUPS) {
+      if (!grouping.isFull()) {
         var newGroup = new Group();
         newGroup.add(id);
-        acc.push(newGroup);
-        return acc;
+        grouping.add(newGroup);
+        return;
       }
 
       // 5) blow up
-      return null;
+      grouping = null;
     } else {
-      var unplacedPeopleTheyWant = Object.keys(preferences[id].yes).filter(function(wantedPerson) {
-        return !(wantedPerson in idToGroup);
+      var availableWantedPeople = Object.keys(preferences[id].yes).filter(function(wantedPerson) {
+        return !grouping.contains(wantedPerson);
       });
-
       if (
         !group.isFull() &&
         !group.hasMemberWantedBy(id) &&
-        unplacedPeopleTheyWant.length > 0
+        availableWantedPeople.length > 0
       ) {
-        var randomPersonTheyWant = getRandomItem(unplacedPeopleTheyWant);
+        var randomPersonTheyWant = getRandomItem(availableWantedPeople);
         group.add(randomPersonTheyWant);
       }
-      return acc;
     }
-  }, []);
+  });
 
   var numSatisfied = 0;
   var unsatisfiedIds = [];
   if (grouping) {
     numSatisfied = ids.reduce(function(acc, id) {
-      var group = idToGroup[id];
+      var group = grouping.getGroupFor(id);
       if (group.hasMemberWantedBy(id)) {
         return acc + 1;
       } else {
@@ -192,7 +223,6 @@ var attemptGrouping = function(preferences) {
   }
 
   return {
-    idToGroup: idToGroup,
     grouping: grouping,
     numSatisfied: numSatisfied,
     unsatisfiedIds: unsatisfiedIds
@@ -210,7 +240,7 @@ for (var numAttempts = 0; numAttempts < 1000; numAttempts++) {
   }
 }
 
-console.log(bestAttempt.grouping.map(function(group) {
+console.log(bestAttempt.grouping.groups.map(function(group) {
   return idsToNames(group.members);
 }));
 console.log('# satisfied:', bestAttempt.numSatisfied);
