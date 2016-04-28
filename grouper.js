@@ -127,6 +127,12 @@ Grouping.prototype.getRandomGroup = function(filter) {
   return null;
 };
 
+Grouping.prototype.getAvailableYesesFor = function(member) {
+  return Object.keys(preferences[member].yes).filter(function(wantedPerson) {
+    return !this.contains(wantedPerson);
+  }.bind(this));
+};
+
 var attemptGrouping = function(preferences) {
   var MAX_GROUP_SIZE = 4;
   var MAX_ATTEMPTS = 20;
@@ -161,12 +167,9 @@ var attemptGrouping = function(preferences) {
       }
 
       // 2) place in new group with someone compatible they want
-      var availableYeses = Object.keys(preferences[id].yes).filter(function(wantedPerson) {
-        return !grouping.contains(wantedPerson);
-      });
+      var availableYeses = grouping.getAvailableYesesFor(id);
       if (!grouping.isFull() && availableYeses.length > 0) {
-        var randomAvailableYes = getRandomItem(availableYeses);
-        grouping.add(new Group(id, randomAvailableYes));
+        grouping.add(new Group(id, getRandomItem(availableYeses)));
         return;
       }
 
@@ -191,16 +194,13 @@ var attemptGrouping = function(preferences) {
       // 5) blow up: we cannot add this person
       grouping = null;
     } else {
-      var availableYeses = Object.keys(preferences[id].yes).filter(function(wantedPerson) {
-        return !grouping.contains(wantedPerson);
-      });
+      var availableYeses = grouping.getAvailableYesesFor(id);
       if (
         !group.isFull() &&
         !group.hasMemberWantedBy(id) &&
         availableYeses.length > 0
       ) {
-        var randomAvailableYes = getRandomItem(availableYeses);
-        group.add(randomAvailableYes);
+        group.add(getRandomItem(availableYeses));
       }
     }
   });
